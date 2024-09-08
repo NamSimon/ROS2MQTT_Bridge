@@ -11,7 +11,7 @@ class ROS2MQTTBridge(Node):
         super().__init__('ros2mqtt_bridge')
 
         # 1. params.ros2.yaml 파일 읽기
-        config_file = '/ROS2MQTT_Bridge/src/ros2mqtt_bridge/config/params.ros2.yaml'
+        config_file = './ROS2MQTT_Bridge/src/ros2mqtt_bridge/config/params.ros2.yaml'
         with open(config_file, 'r') as file:
             self.config = yaml.safe_load(file)
 
