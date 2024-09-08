@@ -2,8 +2,8 @@ import os
 import yaml
 
 def create_yaml_content():
-    broker_host = os.getenv('BROKER_HOST', '203.250.148.119')
-    broker_port = int(os.getenv('BROKER_PORT', 20530))
+    broker_host = os.getenv('BROKER_HOST')
+    broker_port = os.getenv('BROKER_PORT')
     
     # 환경 변수로부터 토픽 및 타입 정보를 가져옵니다.
     ros2mqtt_ros_topic = os.getenv('ROS2MQTT_ROS_TOPIC', '')
