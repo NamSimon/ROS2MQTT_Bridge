@@ -5,6 +5,7 @@ import json
 import paho.mqtt.client as mqtt
 import importlib
 import time
+import os
 
 class ROS2MQTTBridge(Node):
     def __init__(self):
@@ -16,20 +17,14 @@ class ROS2MQTTBridge(Node):
             self.config = yaml.safe_load(file)
 
         # 파라미터 가져오기
-        broker_host = self.config['/**/*']['ros__parameters']['broker']['host']
-        broker_port = self.config['/**/*']['ros__parameters']['broker']['port']
+        broker_host = os.getenv('BROKER_HOST')
+        broker_port = os.getenv('BROKER_PORT')
 
         # ros2mqtt 관련 설정
-        ros2mqtt = self.config['/**/*']['ros__parameters']['bridge']['ros2mqtt']
-        self.ros2mqtt_ros_topic = ros2mqtt['ros_topics'][0]
-        self.ros2mqtt_mqtt_topic = ros2mqtt[self.ros2mqtt_ros_topic]['mqtt_topic']
-        self.ros2mqtt_ros_type = ros2mqtt[self.ros2mqtt_ros_topic]['ros_type']  # ROS 메시지 타입
+        self.ros2mqtt_ros_topic =  os.getenv('ROS2MQTT_ROS_TOPIC', '')
+        self.ros2mqtt_mqtt_topic = os.getenv('ROS2MQTT_ROS_TOPIC', '')
+        self.ros2mqtt_ros_type = os.getenv('ROS2MQTT_ROS_TYPE', '') # ROS 메시지 타입
 
-        # mqtt2ros 관련 설정
-        mqtt2ros = self.config['/**/*']['ros__parameters']['bridge']['mqtt2ros']
-        self.mqtt2ros_mqtt_topic = mqtt2ros['mqtt_topics'][0]
-        self.mqtt2ros_ros_topic = mqtt2ros[self.mqtt2ros_mqtt_topic]['ros_topic']
-        self.mqtt2ros_ros_type = mqtt2ros[self.mqtt2ros_mqtt_topic]['ros_type']  # ROS 메시지 타입
 
         # MQTT 클라이언트 설정
         self.mqtt_client = mqtt.Client()
@@ -40,7 +35,6 @@ class ROS2MQTTBridge(Node):
 
         # ROS 타입을 동적으로 불러오기
         self.ros_msg_type = self.get_ros_msg_type(self.ros2mqtt_ros_type)
-        self.mqtt2ros_msg_type = self.get_ros_msg_type(self.mqtt2ros_ros_type)
 
         # ROS 데이터 플래그
         self.ros_data_received = False
@@ -59,8 +53,8 @@ class ROS2MQTTBridge(Node):
 
         # ROS 퍼블리셔 (MQTT -> ROS 전송)
         self.ros_publisher = self.create_publisher(
-            self.mqtt2ros_msg_type,
-            self.mqtt2ros_ros_topic,
+            self.ros_msg_type,
+            self.ros2mqtt_ros_topic,
             10
         )
 
