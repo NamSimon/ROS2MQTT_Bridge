@@ -47,7 +47,7 @@ class ROS2MQTTBridge(Node):
 
         # ROS 데이터를 기다리기 위한 타임아웃 변수
         self.start_time = time.time()
-        self.ros_timeout = 10  # 10초 동안 ROS 데이터를 기다림
+        self.ros_timeout = 5  # 10초 동안 ROS 데이터를 기다림
 
         # 첫 번째 구독, 데이터를 확인
         self.ros_subscription = self.create_subscription(
