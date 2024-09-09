@@ -12,6 +12,7 @@ class ROS2MQTTBridge(Node):
         # ROS 관련 설정
         self.ros2mqtt_ros_topic = os.getenv('ROS2MQTT_ROS_TOPIC', '')
         self.ros2mqtt_ros_type = os.getenv('ROS2MQTT_ROS_TYPE', '')  # ROS 메시지 타입
+        self.mode = os.getenv('MODE', '')  # 모드 ('pub' 또는 'sub')
 
         # ROS 메시지 타입을 동적으로 로드
         self.ros_msg_type = self.get_ros_msg_type(self.ros2mqtt_ros_type)
@@ -19,54 +20,38 @@ class ROS2MQTTBridge(Node):
         # MQTT 클라이언트를 설정하고 메시지 콜백을 등록
         self.mqtt_client = MQTTClient(self.on_mqtt_message_received)
 
-        # ROS 데이터 플래그와 타임아웃 설정
-        self.ros_data_received = False
-        self.ros_timeout = 5  # ROS 데이터를 기다리는 시간 (초)
-        self.start_time = time.time()
+        # ROS 퍼블리셔 및 구독자 설정
+        self.ros_publisher = None
+        self.ros_subscription = None
 
-        # ROS 구독 설정 (첫 번째 메시지 확인용)
-        self.ros_subscription = self.create_subscription(
-            self.ros_msg_type,
-            self.ros2mqtt_ros_topic,
-            self.first_ros_callback,
-            10
-        )
-
-        # MQTT -> ROS 전송을 위한 퍼블리셔 설정
-        self.ros_publisher = self.create_publisher(
-            self.ros_msg_type,
-            self.ros2mqtt_ros_topic,
-            10
-        )
-
-        # 1초마다 ROS 데이터를 기다리기 위한 타이머
-        self.timer = self.create_timer(1.0, self.check_for_ros_data)
+        if self.mode == 'pub':
+            # ROS -> MQTT
+            self.get_logger().info("모드: pub - MQTT 구독, ROS 퍼블리시")
+            self.ros_subscription = self.create_subscription(
+                self.ros_msg_type,
+                self.ros2mqtt_ros_topic,
+                self.ros_to_mqtt_callback,
+                10
+            )
+            self.mqtt_client.subscribe()  # MQTT 구독 시작
+        elif self.mode == 'sub':
+            # MQTT -> ROS
+            self.get_logger().info("모드: sub - MQTT 퍼블리시, ROS 구독")
+            self.ros_publisher = self.create_publisher(
+                self.ros_msg_type,
+                self.ros2mqtt_ros_topic,
+                10
+            )
+            self.mqtt_client.subscribe()  # MQTT 구독 시작
+        else:
+            self.get_logger().error("올바르지 않은 모드 설정. 'pub' 또는 'sub'만 허용됩니다.")
+            return
 
     def get_ros_msg_type(self, ros_type_name):
         """ROS 메시지 타입을 동적으로 로드하는 함수."""
         package_name, msg_name = ros_type_name.split('/')
         module = importlib.import_module(f"{package_name}.msg")
         return getattr(module, msg_name)
-
-    def first_ros_callback(self, msg):
-        """첫 번째로 수신된 ROS 메시지의 콜백 함수."""
-        self.get_logger().info(f"첫 번째 ROS 데이터 수신: {msg}")
-        self.ros_data_received = True
-
-        # 데이터가 수신되면 지속적으로 구독 및 MQTT 퍼블리시 설정
-        self.ros_subscription = self.create_subscription(
-            self.ros_msg_type,
-            self.ros2mqtt_ros_topic,
-            self.ros_to_mqtt_callback,
-            10
-        )
-
-    def check_for_ros_data(self):
-        """ROS 데이터를 기다리고, 타임아웃 시 MQTT 구독을 시작하는 함수."""
-        if not self.ros_data_received and (time.time() - self.start_time) > self.ros_timeout:
-            self.get_logger().info("ROS 토픽에 데이터가 없습니다. MQTT 구독을 시작합니다.")
-            self.mqtt_client.subscribe()
-            self.timer.cancel()
 
     def ros_to_mqtt_callback(self, msg):
         """ROS에서 수신된 데이터를 MQTT로 퍼블리시하는 콜백 함수."""
@@ -75,10 +60,13 @@ class ROS2MQTTBridge(Node):
 
     def on_mqtt_message_received(self, data):
         """MQTT에서 수신된 메시지를 ROS로 퍼블리시."""
-        self.get_logger().info("MQTT 메시지를 ROS로 퍼블리시합니다.")
-        ros_msg = self.ros_msg_type()
-        ros_msg.data = data['data']
-        self.ros_publisher.publish(ros_msg)
+        self.get_logger().info(f"MQTT 메시지를 ROS로 퍼블리시합니다: {data}")
+        if self.ros_publisher:
+            ros_msg = self.ros_msg_type()
+            ros_msg.data = data['data']
+            self.ros_publisher.publish(ros_msg)
+        else:
+            self.get_logger().error("ROS 퍼블리셔가 설정되지 않았습니다. 'sub' 모드일 때만 MQTT 메시지를 퍼블리시할 수 있습니다.")
 
 def main(args=None):
     rclpy.init(args=args)
