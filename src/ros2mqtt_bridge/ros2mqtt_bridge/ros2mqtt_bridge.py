@@ -10,6 +10,7 @@ class ROS2MQTTBridge(Node):
         super().__init__('ros2mqtt_bridge')
 
         # ROS 관련 설정
+        self.platform = os.getenv('PLATFORM', '')  # 플랫폼 이름
         self.ros2mqtt_ros_topic = os.getenv('ROS2MQTT_ROS_TOPIC', '')
         self.ros2mqtt_ros_type = os.getenv('ROS2MQTT_ROS_TYPE', '')  # ROS 메시지 타입
         self.mode = os.getenv('MODE', '')  # 모드 ('pub' 또는 'sub')
@@ -19,33 +20,65 @@ class ROS2MQTTBridge(Node):
 
         # MQTT 클라이언트를 설정하고 메시지 콜백을 등록
         self.mqtt_client = MQTTClient(self.on_mqtt_message_received)
-
+        if self.platform == 'edge':
         # ROS 퍼블리셔 및 구독자 설정
-        self.ros_publisher = None
-        self.ros_subscription = None
+            self.ros_publisher = None
+            self.ros_subscription = None
 
-        if self.mode == 'pub':
-            # ROS -> MQTT
-            self.get_logger().info("모드: pub - MQTT 구독, ROS 퍼블리시")
-            self.ros_subscription = self.create_subscription(
-                self.ros_msg_type,
-                self.ros2mqtt_ros_topic,
-                self.ros_to_mqtt_callback,
-                10
-            )
-            self.mqtt_client.subscribe()  # MQTT 구독 시작
-        elif self.mode == 'sub':
-            # MQTT -> ROS
-            self.get_logger().info("모드: sub - MQTT 퍼블리시, ROS 구독")
-            self.ros_publisher = self.create_publisher(
-                self.ros_msg_type,
-                self.ros2mqtt_ros_topic,
-                10
-            )
-            self.mqtt_client.subscribe()  # MQTT 구독 시작
-        else:
-            self.get_logger().error("올바르지 않은 모드 설정. 'pub' 또는 'sub'만 허용됩니다.")
-            return
+            if self.mode == 'pub':
+                # ROS -> MQTT
+                self.get_logger().info("모드: pub - MQTT 구독, ROS 퍼블리시")
+                self.ros_publisher = self.create_publisher(
+                    self.ros_msg_type,
+                    self.ros2mqtt_ros_topic,
+                    10
+                )
+
+                self.mqtt_client.subscribe()  # MQTT 구독 시작
+            elif self.mode == 'sub':
+                # MQTT -> ROS
+                self.get_logger().info("모드: sub - MQTT 퍼블리시, ROS 구독")
+                self.ros_subscription = self.create_subscription(
+                    self.ros_msg_type,
+                    self.ros2mqtt_ros_topic,
+                    self.ros_to_mqtt_callback,
+                    10
+                )
+                self.mqtt_client.publish()  # MQTT 구독 시작
+            else:
+                self.get_logger().error("올바르지 않은 모드 설정. 'pub' 또는 'sub'만 허용됩니다.")
+                return
+            
+        elif self.platform =='user':
+            # ROS 퍼블리셔 및 구독자 설정
+            self.ros_publisher = None
+            self.ros_subscription = None
+
+            if self.mode == 'pub': 
+                # MQTT -> ROS
+                self.get_logger().info("모드: sub - MQTT 퍼블리시, ROS 구독")
+                self.ros_subscription = self.create_subscription(
+                    self.ros_msg_type,
+                    self.ros2mqtt_ros_topic,
+                    self.ros_to_mqtt_callback,
+                    10
+                )
+                self.mqtt_client.publish()  # MQTT 구독 시작
+                
+            elif self.mode == 'sub':
+                # ROS -> MQTT
+                self.get_logger().info("모드: pub - MQTT 구독, ROS 퍼블리시")
+                self.ros_publisher = self.create_publisher(
+                    self.ros_msg_type,
+                    self.ros2mqtt_ros_topic,
+                    10
+                )
+
+                self.mqtt_client.subscribe()  # MQTT 구독 시작
+            else:
+                self.get_logger().error("올바르지 않은 모드 설정. 'pub' 또는 'sub'만 허용됩니다.")
+                return
+            
 
     def get_ros_msg_type(self, ros_type_name):
         """ROS 메시지 타입을 동적으로 로드하는 함수."""
