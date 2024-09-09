@@ -22,10 +22,8 @@ class ROS2MQTTBridge(Node):
         self.mqtt_client = MQTTClient(self.on_mqtt_message_received)
         if self.platform == 'edge':
         # ROS 퍼블리셔 및 구독자 설정
-            self.ros_publisher = None
-            self.ros_subscription = None
-
             if self.mode == 'pub':
+                self.mqtt_client.subscribe()  # MQTT 구독 시작
                 # ROS -> MQTT
                 self.get_logger().info("모드: pub - MQTT 구독, ROS 퍼블리시")
                 self.ros_publisher = self.create_publisher(
@@ -34,7 +32,6 @@ class ROS2MQTTBridge(Node):
                     10
                 )
 
-                self.mqtt_client.subscribe()  # MQTT 구독 시작
             elif self.mode == 'sub':
                 # MQTT -> ROS
                 self.get_logger().info("모드: sub - MQTT 퍼블리시, ROS 구독")
@@ -44,15 +41,13 @@ class ROS2MQTTBridge(Node):
                     self.ros_to_mqtt_callback,
                     10
                 )
-                self.mqtt_client.publish()  # MQTT 구독 시작
             else:
                 self.get_logger().error("올바르지 않은 모드 설정. 'pub' 또는 'sub'만 허용됩니다.")
                 return
             
         elif self.platform =='user':
             # ROS 퍼블리셔 및 구독자 설정
-            self.ros_publisher = None
-            self.ros_subscription = None
+
 
             if self.mode == 'pub': 
                 # MQTT -> ROS
@@ -63,9 +58,9 @@ class ROS2MQTTBridge(Node):
                     self.ros_to_mqtt_callback,
                     10
                 )
-                self.mqtt_client.publish()  # MQTT 구독 시작
                 
             elif self.mode == 'sub':
+                self.mqtt_client.subscribe()  # MQTT 구독 시작
                 # ROS -> MQTT
                 self.get_logger().info("모드: pub - MQTT 구독, ROS 퍼블리시")
                 self.ros_publisher = self.create_publisher(
@@ -74,7 +69,7 @@ class ROS2MQTTBridge(Node):
                     10
                 )
 
-                self.mqtt_client.subscribe()  # MQTT 구독 시작
+                
             else:
                 self.get_logger().error("올바르지 않은 모드 설정. 'pub' 또는 'sub'만 허용됩니다.")
                 return
@@ -93,13 +88,10 @@ class ROS2MQTTBridge(Node):
 
     def on_mqtt_message_received(self, data):
         """MQTT에서 수신된 메시지를 ROS로 퍼블리시."""
-        self.get_logger().info(f"MQTT 메시지를 ROS로 퍼블리시합니다: {data}")
-        if self.ros_publisher:
-            ros_msg = self.ros_msg_type()
-            ros_msg.data = data['data']
-            self.ros_publisher.publish(ros_msg)
-        else:
-            self.get_logger().error("ROS 퍼블리셔가 설정되지 않았습니다. 'sub' 모드일 때만 MQTT 메시지를 퍼블리시할 수 있습니다.")
+        self.get_logger().info("MQTT 메시지를 ROS로 퍼블리시합니다.")
+        ros_msg = self.ros_msg_type()
+        ros_msg.data = data['data']
+        self.ros_publisher.publish(ros_msg)
 
 def main(args=None):
     rclpy.init(args=args)
