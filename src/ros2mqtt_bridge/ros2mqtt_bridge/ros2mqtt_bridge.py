@@ -13,7 +13,7 @@ class ROS2MQTTBridge(Node):
         self.platform = os.getenv('PLATFORM', '')  # 플랫폼 이름
         self.ros2mqtt_ros_topic = os.getenv('ROS2MQTT_ROS_TOPIC', '')
         self.ros2mqtt_ros_type = os.getenv('ROS2MQTT_ROS_TYPE', '')  # ROS 메시지 타입
-        self.mode = os.getenv('MODE', '')  # 모드 ('pub' 또는 'sub')
+        self.mode = os.getenv('MODE')  # 모드 ('pub' 또는 'sub')
 
         # ROS 메시지 타입을 동적으로 로드
         self.ros_msg_type = self.get_ros_msg_type(self.ros2mqtt_ros_type)
