@@ -85,7 +85,7 @@ class ROS2MQTTBridge(Node):
         # "msg/"와 같은 불필요한 경로가 포함된 경우 제거
         if '/msg/' in ros_type_name:
             ros_type_name = ros_type_name.replace('/msg/', '/')
-
+        print(ros_type_name)
         # 패키지명과 메시지명 분리
         package_name, msg_name = ros_type_name.split('/')
         
