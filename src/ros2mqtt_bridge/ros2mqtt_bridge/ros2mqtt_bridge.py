@@ -77,8 +77,10 @@ class ROS2MQTTBridge(Node):
 
     def get_ros_msg_type(self, ros_type_name):
         """ROS 메시지 타입을 동적으로 로드하는 함수."""
-        # 첫 번째 '/'에서만 나눕니다.
-        package_name, msg_name = ros_type_name.split('/', 1)
+        if '/' not in ros_type_name:
+            self.get_logger().error(f"Invalid ROS message type: {ros_type_name}")
+            return None
+        package_name, msg_name = ros_type_name.split('/')
         module = importlib.import_module(f"{package_name}.msg")
         return getattr(module, msg_name)
 
