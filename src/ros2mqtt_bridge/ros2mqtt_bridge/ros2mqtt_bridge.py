@@ -80,7 +80,7 @@ class ROS2MQTTBridge(Node):
         if '/' not in ros_type_name:
             self.get_logger().error(f"Invalid ROS message type: {ros_type_name}")
             return None
-        package_name, msg_name = ros_type_name.split('/')
+        package_name, msg_name = ros_type_name.split('/',2)
         module = importlib.import_module(f"{package_name}.msg")
         return getattr(module, msg_name)
 
