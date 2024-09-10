@@ -77,12 +77,25 @@ class ROS2MQTTBridge(Node):
 
     def get_ros_msg_type(self, ros_type_name):
         """ROS 메시지 타입을 동적으로 로드하는 함수."""
-        if '/' not in ros_type_name:
+        # 메시지 타입 형식이 '패키지/메시지' 형식을 따르는지 확인
+        if '/' not in ros_type_name or ros_type_name.count('/') != 1:
             self.get_logger().error(f"Invalid ROS message type: {ros_type_name}")
             return None
+        
+        # "msg/"와 같은 불필요한 경로가 포함된 경우 제거
+        if 'msg/' in ros_type_name:
+            ros_type_name = ros_type_name.replace('msg/', '')
+
+        # 패키지명과 메시지명 분리
         package_name, msg_name = ros_type_name.split('/')
-        module = importlib.import_module(f"{package_name}.msg")
-        return getattr(module, msg_name)
+        
+        try:
+            # 패키지에서 메시지 모듈 가져오기
+            module = importlib.import_module(f"{package_name}.msg")
+            return getattr(module, msg_name)
+        except (ImportError, AttributeError) as e:
+            self.get_logger().error(f"Failed to import ROS message type: {ros_type_name}. Error: {e}")
+            return None
 
     def ros_to_mqtt_callback(self, msg):
         """ROS에서 수신된 데이터를 MQTT로 퍼블리시하는 콜백 함수."""
