@@ -83,8 +83,8 @@ class ROS2MQTTBridge(Node):
             return None
         
         # "msg/"와 같은 불필요한 경로가 포함된 경우 제거
-        if 'msg/' in ros_type_name:
-            ros_type_name = ros_type_name.replace('msg/', '')
+        if '/msg/' in ros_type_name:
+            ros_type_name = ros_type_name.replace('/msg/', '/')
 
         # 패키지명과 메시지명 분리
         package_name, msg_name = ros_type_name.split('/')
@@ -92,7 +92,18 @@ class ROS2MQTTBridge(Node):
         try:
             # 패키지에서 메시지 모듈 가져오기
             module = importlib.import_module(f"{package_name}.msg")
-            return getattr(module, msg_name)
+            msg_type = getattr(module, msg_name, None)
+
+            if msg_type is None:
+                self.get_logger().error(f"Message type {ros_type_name} not found in package {package_name}")
+                return None
+            
+            # 타입 서포트를 확인하여 ROS 2 메시지 타입인지 체크
+            if not hasattr(msg_type, '_TYPE_SUPPORT'):
+                self.get_logger().error(f"Message type {ros_type_name} is missing _TYPE_SUPPORT. Ensure it's a valid ROS 2 message.")
+                return None
+
+            return msg_type
         except (ImportError, AttributeError) as e:
             self.get_logger().error(f"Failed to import ROS message type: {ros_type_name}. Error: {e}")
             return None
