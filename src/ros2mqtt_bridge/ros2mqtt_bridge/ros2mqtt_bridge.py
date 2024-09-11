@@ -107,12 +107,9 @@ class ROS2MQTTBridge(Node):
             self.get_logger().error(f"ROS 메시지 Pickle 직렬화 오류: {e}")
             return None
 
-    def on_mqtt_message_received(self, mqtt_message):
+    def on_mqtt_message_received(self, serialized_msg):
         """MQTT에서 수신된 메시지를 ROS로 퍼블리시."""
         self.get_logger().info("MQTT 메시지를 ROS로 퍼블리시합니다.")
-        
-        # MQTT 메시지에서 페이로드 가져오기
-        serialized_msg = mqtt_message.payload
 
         # 메시지를 pickle로 역직렬화하여 ROS 메시지로 변환
         try:
