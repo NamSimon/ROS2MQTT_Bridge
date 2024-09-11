@@ -102,18 +102,6 @@ class ROS2MQTTBridge(Node):
         json_data = self.ros_msg_to_json(msg)
         self.mqtt_client.publish(json_data)
 
-    def ros_msg_to_dict(self, msg):
-        """ROS 메시지를 딕셔너리로 변환하는 함수."""
-        data = {}
-        for field_name in msg.__slots__:
-            value = getattr(msg, field_name)
-            if hasattr(value, '__slots__'):  # 서브 메시지 (예: Vector3)의 경우
-                # 서브 메시지일 경우 재귀적으로 딕셔너리로 변환
-                data[field_name] = self.ros_msg_to_dict(value)
-            else:
-                # 기본 타입의 경우 그대로 할당
-                data[field_name] = value
-        return data
 
     def ros_msg_to_json(self, msg):
         """ROS 메시지를 JSON으로 변환하는 함수."""
@@ -124,8 +112,11 @@ class ROS2MQTTBridge(Node):
         """MQTT에서 수신된 메시지를 ROS로 퍼블리시."""
         self.get_logger().info("MQTT 메시지를 ROS로 퍼블리시합니다.")
         
-        # JSON 데이터를 딕셔너리로 변환
-        data = json.loads(json_data)
+        # 이미 딕셔너리일 경우 변환하지 않고, 문자열이면 JSON으로 파싱
+        if isinstance(json_data, str):
+            data = json.loads(json_data)
+        else:
+            data = json_data  # 이미 딕셔너리인 경우 그대로 사용
         
         # 딕셔너리를 ROS 메시지로 변환
         ros_msg = self.ros_msg_type()
@@ -133,30 +124,48 @@ class ROS2MQTTBridge(Node):
         
         # ROS 퍼블리시
         self.ros_publisher.publish(ros_msg)
+        
+    def ros_msg_to_dict(self, msg):
+        """ROS 메시지를 딕셔너리로 변환하는 함수."""
+        data = {}
+        for field_name in msg.__slots__:
+            value = getattr(msg, field_name)
+            if hasattr(value, '__slots__'):  # 서브 메시지 (예: Vector3)의 경우
+                # 서브 메시지일 경우 재귀적으로 딕셔너리로 변환
+                data[field_name] = self.ros_msg_to_dict(value)
+            elif isinstance(value, list):  # 리스트(배열) 처리
+                # 배열의 경우, 각각의 요소를 재귀적으로 처리
+                data[field_name] = [self.ros_msg_to_dict(v) if hasattr(v, '__slots__') else v for v in value]
+            else:
+                # 기본 타입의 경우 그대로 할당
+                data[field_name] = value
+        return data
 
     def dict_to_ros_msg(self, ros_msg, data):
         """딕셔너리를 ROS 메시지로 변환하는 함수."""
         for field_name, value in data.items():
             if hasattr(ros_msg, field_name):
                 field = getattr(ros_msg, field_name)
-                field_type = type(field)  # 필드의 타입을 확인
-
+                
                 # 서브 메시지일 경우 재귀적으로 처리
                 if hasattr(field, '__slots__'):
                     self.dict_to_ros_msg(field, value)
+                elif isinstance(value, list):  # 배열 타입 처리
+                    # 배열의 경우, 각각의 요소를 재귀적으로 처리
+                    for i, val in enumerate(value):
+                        if hasattr(field[i], '__slots__'):
+                            self.dict_to_ros_msg(field[i], val)
+                        else:
+                            field[i] = val
                 else:
                     # 필드 타입에 맞춰 값을 설정
-                    if field_type == str:
-                        # 문자열 타입일 경우, 값을 문자열로 변환
+                    if isinstance(field, str):
                         setattr(ros_msg, field_name, str(value))
-                    elif field_type == float:
-                        # 부동소수점일 경우, 값을 float로 변환
+                    elif isinstance(field, float):
                         setattr(ros_msg, field_name, float(value))
-                    elif field_type == int:
-                        # 정수일 경우, 값을 int로 변환
+                    elif isinstance(field, int):
                         setattr(ros_msg, field_name, int(value))
                     else:
-                        # 기본적으로 해당 필드에 맞는 타입으로 설정
                         setattr(ros_msg, field_name, value)
 
 def main(args=None):
