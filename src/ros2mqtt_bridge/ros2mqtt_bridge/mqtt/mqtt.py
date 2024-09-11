@@ -1,4 +1,3 @@
-import json
 import paho.mqtt.client as mqtt
 import os
 
@@ -29,8 +28,8 @@ class MQTTClient:
     def on_message(self, client, userdata, msg):
         """MQTT 메시지를 수신할 때의 콜백 함수."""
         print(f"MQTT에서 데이터 수신: {msg.topic}")
-        data = json.loads(msg.payload.decode('utf-8'))
-        self.on_message_callback(data)
+        # 데이터를 바이너리로 처리 (직렬화된 데이터를 그대로 사용)
+        self.on_message_callback(msg.payload)
 
     def subscribe(self):
         """MQTT 구독을 시작."""
@@ -38,7 +37,8 @@ class MQTTClient:
 
     def publish(self, data):
         """MQTT로 데이터를 퍼블리시."""
-        self.mqtt_client.publish(self.mqtt_topic, json.dumps({'data': data}))
+        # 데이터를 그대로 퍼블리시 (json.dumps() 제거)
+        self.mqtt_client.publish(self.mqtt_topic, data)
 
     def stop(self):
         """MQTT 루프를 중지."""
