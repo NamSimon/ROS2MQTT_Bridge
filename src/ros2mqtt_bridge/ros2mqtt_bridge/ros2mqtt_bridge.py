@@ -21,10 +21,10 @@ class ROS2MQTTBridge(Node):
         # MQTT 클라이언트를 설정하고 메시지 콜백을 등록
         self.mqtt_client = MQTTClient(self.on_mqtt_message_received)
 
+        # 플랫폼 및 모드 설정에 따라 동작 분기
         if self.platform == 'edge':
             if self.mode == 'pub':
                 self.mqtt_client.subscribe()  # MQTT 구독 시작
-                # ROS -> MQTT
                 self.get_logger().info("모드: pub - MQTT 구독, ROS 퍼블리시")
                 self.ros_publisher = self.create_publisher(
                     self.ros_msg_type,
@@ -33,7 +33,6 @@ class ROS2MQTTBridge(Node):
                 )
 
             elif self.mode == 'sub':
-                # MQTT -> ROS
                 self.get_logger().info("모드: sub - MQTT 퍼블리시, ROS 구독")
                 self.ros_subscription = self.create_subscription(
                     self.ros_msg_type,
@@ -46,8 +45,7 @@ class ROS2MQTTBridge(Node):
                 return
             
         elif self.platform == 'user':
-            if self.mode == 'pub': 
-                # MQTT -> ROS
+            if self.mode == 'pub':
                 self.get_logger().info("모드: pub - MQTT 구독, ROS 퍼블리시")
                 self.ros_subscription = self.create_subscription(
                     self.ros_msg_type,
@@ -58,7 +56,6 @@ class ROS2MQTTBridge(Node):
                 
             elif self.mode == 'sub':
                 self.mqtt_client.subscribe()  # MQTT 구독 시작
-                # ROS -> MQTT
                 self.get_logger().info("모드: sub - MQTT 퍼블리시, ROS 구독")
                 self.ros_publisher = self.create_publisher(
                     self.ros_msg_type,
@@ -104,7 +101,11 @@ class ROS2MQTTBridge(Node):
 
     def ros_msg_to_pickle(self, msg):
         """ROS 메시지를 pickle로 직렬화하는 함수."""
-        return pickle.dumps(msg)
+        try:
+            return pickle.dumps(msg)
+        except pickle.PicklingError as e:
+            self.get_logger().error(f"ROS 메시지 Pickle 직렬화 오류: {e}")
+            return None
 
     def on_mqtt_message_received(self, mqtt_message):
         """MQTT에서 수신된 메시지를 ROS로 퍼블리시."""
