@@ -102,29 +102,32 @@ class ROS2MQTTBridge(Node):
         json_data = self.ros_msg_to_json(msg)
         self.mqtt_client.publish(json_data)
 
-
     def ros_msg_to_json(self, msg):
         """ROS 메시지를 JSON으로 변환하는 함수."""
         msg_dict = self.ros_msg_to_dict(msg)
         return json.dumps(msg_dict)  # JSON 문자열로 변환
 
-    def on_mqtt_message_received(self, json_data):
+    def on_mqtt_message_received(self, mqtt_message):
         """MQTT에서 수신된 메시지를 ROS로 퍼블리시."""
         self.get_logger().info("MQTT 메시지를 ROS로 퍼블리시합니다.")
         
+        # MQTT 메시지에서 페이로드 가져오기
+        json_data = mqtt_message.payload.decode('utf-8')
+
         # 이미 딕셔너리일 경우 변환하지 않고, 문자열이면 JSON으로 파싱
-        if isinstance(json_data, str):
+        try:
             data = json.loads(json_data)
-        else:
-            data = json_data  # 이미 딕셔너리인 경우 그대로 사용
-        
+        except json.JSONDecodeError as e:
+            self.get_logger().error(f"JSON 디코딩 오류: {e}")
+            return
+
         # 딕셔너리를 ROS 메시지로 변환
         ros_msg = self.ros_msg_type()
         self.dict_to_ros_msg(ros_msg, data)
         
         # ROS 퍼블리시
         self.ros_publisher.publish(ros_msg)
-        
+
     def ros_msg_to_dict(self, msg):
         """ROS 메시지를 딕셔너리로 변환하는 함수."""
         data = {}
