@@ -2,7 +2,7 @@ import rclpy
 from rclpy.node import Node
 import importlib
 import os
-import pickle
+import json
 from mqtt.mqtt import MQTTClient
 
 class ROS2MQTTBridge(Node):
@@ -95,31 +95,50 @@ class ROS2MQTTBridge(Node):
         """ROS에서 수신된 데이터를 MQTT로 퍼블리시하는 콜백 함수."""
         self.get_logger().info(f"ROS에서 데이터 수신: {msg}")
 
-        # ROS 메시지를 pickle로 직렬화하여 MQTT로 전송
-        serialized_msg = self.ros_msg_to_pickle(msg)
-        self.mqtt_client.publish(serialized_msg)
+        # ROS 메시지를 JSON으로 직렬화하여 MQTT로 전송
+        json_msg = self.ros_msg_to_json(msg)
+        if json_msg is not None:
+            self.mqtt_client.publish(json_msg)
 
-    def ros_msg_to_pickle(self, msg):
-        """ROS 메시지를 pickle로 직렬화하는 함수."""
+    def ros_msg_to_json(self, msg):
+        """ROS 메시지를 JSON으로 직렬화하는 함수."""
         try:
-            return pickle.dumps(msg)
-        except pickle.PicklingError as e:
-            self.get_logger().error(f"ROS 메시지 Pickle 직렬화 오류: {e}")
+            # ROS 메시지를 딕셔너리로 변환 후 JSON 직렬화
+            return json.dumps(self.ros_msg_to_dict(msg))
+        except (TypeError, ValueError) as e:
+            self.get_logger().error(f"ROS 메시지 JSON 직렬화 오류: {e}")
             return None
 
-    def on_mqtt_message_received(self, serialized_msg):
-        """MQTT에서 수신된 메시지를 ROS로 퍼블리시."""
+    def ros_msg_to_dict(self, msg):
+        """ROS 메시지를 딕셔너리로 변환하는 함수."""
+        return {field: getattr(msg, field) for field in msg.get_fields_and_field_types()}
+
+    def on_mqtt_message_received(self, json_msg):
+        """MQTT에서 수신된 JSON 메시지를 ROS로 퍼블리시."""
         self.get_logger().info("MQTT 메시지를 ROS로 퍼블리시합니다.")
 
-        # 메시지를 pickle로 역직렬화하여 ROS 메시지로 변환
+        # JSON 메시지를 딕셔너리로 역직렬화하여 ROS 메시지로 변환
         try:
-            ros_msg = pickle.loads(serialized_msg)
-        except pickle.UnpicklingError as e:
-            self.get_logger().error(f"Pickle 역직렬화 오류: {e}")
+            msg_dict = json.loads(json_msg)
+        except json.JSONDecodeError as e:
+            self.get_logger().error(f"JSON 역직렬화 오류: {e}")
             return
 
-        # ROS 퍼블리시
-        self.ros_publisher.publish(ros_msg)
+        # ROS 메시지로 변환하여 퍼블리시
+        ros_msg = self.dict_to_ros_msg(msg_dict)
+        if ros_msg:
+            self.ros_publisher.publish(ros_msg)
+
+    def dict_to_ros_msg(self, msg_dict):
+        """딕셔너리 데이터를 ROS 메시지로 변환하는 함수."""
+        try:
+            ros_msg = self.ros_msg_type()
+            for field, value in msg_dict.items():
+                setattr(ros_msg, field, value)
+            return ros_msg
+        except AttributeError as e:
+            self.get_logger().error(f"ROS 메시지 변환 오류: {e}")
+            return None
 
 def main(args=None):
     rclpy.init(args=args)
