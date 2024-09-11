@@ -129,10 +129,25 @@ class ROS2MQTTBridge(Node):
         for field_name, value in data.items():
             if hasattr(ros_msg, field_name):
                 field = getattr(ros_msg, field_name)
-                if hasattr(field, '__slots__'):  # 서브 메시지일 경우
+                field_type = type(field)  # 필드의 타입을 확인
+
+                # 서브 메시지일 경우 재귀적으로 처리
+                if hasattr(field, '__slots__'):
                     self.dict_to_ros_msg(field, value)
                 else:
-                    setattr(ros_msg, field_name, value)
+                    # 필드 타입에 맞춰 값을 설정
+                    if field_type == str:
+                        # 문자열 타입일 경우, 값을 문자열로 변환
+                        setattr(ros_msg, field_name, str(value))
+                    elif field_type == float:
+                        # 부동소수점일 경우, 값을 float로 변환
+                        setattr(ros_msg, field_name, float(value))
+                    elif field_type == int:
+                        # 정수일 경우, 값을 int로 변환
+                        setattr(ros_msg, field_name, int(value))
+                    else:
+                        # 기본적으로 해당 필드에 맞는 타입으로 설정
+                        setattr(ros_msg, field_name, value)
 
 def main(args=None):
     rclpy.init(args=args)
