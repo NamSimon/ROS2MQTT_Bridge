@@ -51,7 +51,7 @@ class ROS2MQTTBridge(Node):
 
             if self.mode == 'pub': 
                 # MQTT -> ROS
-                self.get_logger().info("모드: sub - MQTT 퍼블리시, ROS 구독")
+                self.get_logger().info("모드: pub - MQTT 구독, ROS 퍼블리시")
                 self.ros_subscription = self.create_subscription(
                     self.ros_msg_type,
                     self.ros2mqtt_ros_topic,
@@ -62,7 +62,7 @@ class ROS2MQTTBridge(Node):
             elif self.mode == 'sub':
                 self.mqtt_client.subscribe()  # MQTT 구독 시작
                 # ROS -> MQTT
-                self.get_logger().info("모드: pub - MQTT 구독, ROS 퍼블리시")
+                self.get_logger().info("모드: sub - MQTT 퍼블리시, ROS 구독")
                 self.ros_publisher = self.create_publisher(
                     self.ros_msg_type,
                     self.ros2mqtt_ros_topic,
