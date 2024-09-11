@@ -4,10 +4,16 @@ import importlib
 import time
 import os
 from mqtt.mqtt import MQTTClient  # MQTTClient 클래스를 불러옴
+from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy
 
 class ROS2MQTTBridge(Node):
     def __init__(self):
         super().__init__('ros2mqtt_bridge')
+
+        qos_profile = QoSProfile(
+            reliability=ReliabilityPolicy.RELIABLE,  # 신뢰성 있는 전송
+            durability=DurabilityPolicy.TRANSIENT_LOCAL  # 퍼블리셔가 이전에 보낸 메시지를 구독자가 받을 수 있게 함
+        )
 
         # ROS 관련 설정
         self.platform = os.getenv('PLATFORM', '')  # 플랫폼 이름
@@ -39,7 +45,7 @@ class ROS2MQTTBridge(Node):
                     self.ros_msg_type,
                     self.ros2mqtt_ros_topic,
                     self.ros_to_mqtt_callback,
-                    10
+                    qos_profile
                 )
             else:
                 self.get_logger().error("올바르지 않은 모드 설정. 'pub' 또는 'sub'만 허용됩니다.")
@@ -66,7 +72,7 @@ class ROS2MQTTBridge(Node):
                 self.ros_publisher = self.create_publisher(
                     self.ros_msg_type,
                     self.ros2mqtt_ros_topic,
-                    10
+                    qos_profile
                 )
 
                 
