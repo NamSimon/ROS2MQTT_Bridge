@@ -2,6 +2,7 @@ import rclpy
 from rclpy.node import Node
 import importlib
 import os
+import json
 from mqtt.mqtt import MQTTClient
 
 class ROS2MQTTBridge(Node):
@@ -97,9 +98,9 @@ class ROS2MQTTBridge(Node):
         """ROS에서 수신된 데이터를 MQTT로 퍼블리시하는 콜백 함수."""
         self.get_logger().info(f"ROS에서 데이터 수신: {msg}")
 
-        # ROS 메시지를 딕셔너리로 변환하여 MQTT로 전송
-        data = self.ros_msg_to_dict(msg)
-        self.mqtt_client.publish(data)
+        # ROS 메시지를 JSON으로 변환하여 MQTT로 전송
+        json_data = self.ros_msg_to_json(msg)
+        self.mqtt_client.publish(json_data)
 
     def ros_msg_to_dict(self, msg):
         """ROS 메시지를 딕셔너리로 변환하는 함수."""
@@ -114,14 +115,23 @@ class ROS2MQTTBridge(Node):
                 data[field_name] = value
         return data
 
-    def on_mqtt_message_received(self, data):
+    def ros_msg_to_json(self, msg):
+        """ROS 메시지를 JSON으로 변환하는 함수."""
+        msg_dict = self.ros_msg_to_dict(msg)
+        return json.dumps(msg_dict)  # JSON 문자열로 변환
+
+    def on_mqtt_message_received(self, json_data):
         """MQTT에서 수신된 메시지를 ROS로 퍼블리시."""
         self.get_logger().info("MQTT 메시지를 ROS로 퍼블리시합니다.")
-        ros_msg = self.ros_msg_type()  # 동적으로 로드된 메시지 타입 인스턴스 생성
-
-        # 수신된 MQTT 데이터를 ROS 메시지 필드에 동적으로 설정
+        
+        # JSON 데이터를 딕셔너리로 변환
+        data = json.loads(json_data)
+        
+        # 딕셔너리를 ROS 메시지로 변환
+        ros_msg = self.ros_msg_type()
         self.dict_to_ros_msg(ros_msg, data)
         
+        # ROS 퍼블리시
         self.ros_publisher.publish(ros_msg)
 
     def dict_to_ros_msg(self, ros_msg, data):
