@@ -98,10 +98,21 @@ class ROS2MQTTBridge(Node):
         self.get_logger().info(f"ROS에서 데이터 수신: {msg}")
 
         # ROS 메시지를 딕셔너리로 변환하여 MQTT로 전송
+        data = self.ros_msg_to_dict(msg)
+        self.mqtt_client.publish(data)
+
+    def ros_msg_to_dict(self, msg):
+        """ROS 메시지를 딕셔너리로 변환하는 함수."""
         data = {}
         for field_name in msg.__slots__:
-            data[field_name] = getattr(msg, field_name)
-        self.mqtt_client.publish(data)
+            value = getattr(msg, field_name)
+            if hasattr(value, '__slots__'):  # 서브 메시지 (예: Vector3)의 경우
+                # 서브 메시지일 경우 재귀적으로 딕셔너리로 변환
+                data[field_name] = self.ros_msg_to_dict(value)
+            else:
+                # 기본 타입의 경우 그대로 할당
+                data[field_name] = value
+        return data
 
     def on_mqtt_message_received(self, data):
         """MQTT에서 수신된 메시지를 ROS로 퍼블리시."""
@@ -109,11 +120,19 @@ class ROS2MQTTBridge(Node):
         ros_msg = self.ros_msg_type()  # 동적으로 로드된 메시지 타입 인스턴스 생성
 
         # 수신된 MQTT 데이터를 ROS 메시지 필드에 동적으로 설정
-        for field_name, value in data.items():
-            if hasattr(ros_msg, field_name):
-                setattr(ros_msg, field_name, value)
+        self.dict_to_ros_msg(ros_msg, data)
         
         self.ros_publisher.publish(ros_msg)
+
+    def dict_to_ros_msg(self, ros_msg, data):
+        """딕셔너리를 ROS 메시지로 변환하는 함수."""
+        for field_name, value in data.items():
+            if hasattr(ros_msg, field_name):
+                field = getattr(ros_msg, field_name)
+                if hasattr(field, '__slots__'):  # 서브 메시지일 경우
+                    self.dict_to_ros_msg(field, value)
+                else:
+                    setattr(ros_msg, field_name, value)
 
 def main(args=None):
     rclpy.init(args=args)
