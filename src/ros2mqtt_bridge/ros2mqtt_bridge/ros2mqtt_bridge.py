@@ -4,7 +4,7 @@ import importlib
 import os
 import json
 from mqtt.mqtt import MQTTClient
-
+from rclpy_message_converter import json_message_converter
 class ROS2MQTTBridge(Node):
     def __init__(self):
         super().__init__('ros2mqtt_bridge')
@@ -104,41 +104,21 @@ class ROS2MQTTBridge(Node):
         """ROS 메시지를 JSON으로 직렬화하는 함수."""
         try:
             # ROS 메시지를 딕셔너리로 변환 후 JSON 직렬화
-            return json.dumps(self.ros_msg_to_dict(msg))
+            return json_message_converter.convert_ros_message_to_json(msg)
         except (TypeError, ValueError) as e:
             self.get_logger().error(f"ROS 메시지 JSON 직렬화 오류: {e}")
             return None
 
-    def ros_msg_to_dict(self, msg):
-        """ROS 메시지를 딕셔너리로 변환하는 함수."""
-        return {field: getattr(msg, field) for field in msg.get_fields_and_field_types()}
 
     def on_mqtt_message_received(self, json_msg):
         """MQTT에서 수신된 JSON 메시지를 ROS로 퍼블리시."""
         self.get_logger().info("MQTT 메시지를 ROS로 퍼블리시합니다.")
 
-        # JSON 메시지를 딕셔너리로 역직렬화하여 ROS 메시지로 변환
-        try:
-            msg_dict = json.loads(json_msg)
-        except json.JSONDecodeError as e:
-            self.get_logger().error(f"JSON 역직렬화 오류: {e}")
-            return
-
         # ROS 메시지로 변환하여 퍼블리시
-        ros_msg = self.dict_to_ros_msg(msg_dict)
+        ros_msg = json_message_converter.convert_json_to_ros_message(self.ros_msg_type, json_msg)
         if ros_msg:
             self.ros_publisher.publish(ros_msg)
 
-    def dict_to_ros_msg(self, msg_dict):
-        """딕셔너리 데이터를 ROS 메시지로 변환하는 함수."""
-        try:
-            ros_msg = self.ros_msg_type()
-            for field, value in msg_dict.items():
-                setattr(ros_msg, field, value)
-            return ros_msg
-        except AttributeError as e:
-            self.get_logger().error(f"ROS 메시지 변환 오류: {e}")
-            return None
 
 def main(args=None):
     rclpy.init(args=args)
