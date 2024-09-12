@@ -115,7 +115,6 @@ class ROS2MQTTBridge(Node):
         self.get_logger().info("MQTT 메시지를 ROS로 퍼블리시합니다.")
 
         # ROS 메시지로 변환하여 퍼블리시
-        print(self.ros_msg_type)
         ros_msg = json_message_converter.convert_json_to_ros_message(self.ros2mqtt_ros_type, json_msg)
         if ros_msg:
             self.ros_publisher.publish(ros_msg)
